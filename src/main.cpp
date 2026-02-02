@@ -3,9 +3,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <string.h>
 
-// =====================================================
-// LCD + LEDs + Buttons (A0..A3) — параллельно
-// =====================================================
+
 LiquidCrystal lcd(8, 9, 5, 6, 7, 3);
 
 const int btn1 = A0;
@@ -108,32 +106,29 @@ void taskLCD() {
   }
 }
 
-// =====================================================
-// NeoPixel Flappy — DIN=D4, Jump=D13
-// =====================================================
+
 #define DATA_PIN 4
 #define WIDTH 32
 #define HEIGHT 8
 #define NUMPIXELS (WIDTH * HEIGHT)
 #define BRIGHTNESS 35
 
-// Настройки разводки матрицы
+
 #define COLUMN_WIRED true
 #define SERPENTINE true
-#define FLIP_X false   // если зеркально — true
-#define FLIP_Y false   // если вверх ногами — true
+#define FLIP_X false   
+#define FLIP_Y false   
 
 Adafruit_NeoPixel pixels(NUMPIXELS, DATA_PIN, NEO_GRB + NEO_KHZ800);
 
 const int jumpBtnPin = 13;
 
-// -------- Timing --------
-unsigned long lastFrameMs = 0;
-const unsigned long FRAME_MS = 60;   // общий тик (отзывчивость)
-unsigned long lastPipeMs = 0;
-const unsigned long PIPE_MS = 130;   // скорость труб (меньше = быстрее)
 
-// -------- Bird physics (приятный контроль) --------
+unsigned long lastFrameMs = 0;
+const unsigned long FRAME_MS = 60;   
+const unsigned long PIPE_MS = 130;   
+
+
 float birdYf = 0.0f;
 float birdVy = 0.0f;
 
@@ -143,17 +138,17 @@ const float MAX_FALL = 1.40f;
 
 const int birdX = 5;
 
-// Pipes (одинарные!)
+
 int pipeX[2] = {31, 16};
 int prevPipeX[2] = {31, 16};
 int gapTop[2] = {2, 3};
 int gapSize = 2;
-int pipeWidth = 1; // ✅ одинарные
+int pipeWidth = 1; 
 
-// Score
+
 int score = 0;
 
-// -------- Game states --------
+
 enum GameState { STATE_START, STATE_PLAYING, STATE_GO };
 GameState state = STATE_START;
 
@@ -162,9 +157,7 @@ const unsigned long GO_SHOW_MS = 900;
 
 bool lastJumpDown = false;
 
-// =====================================================
-// XY mapping
-// =====================================================
+
 static inline void transformXY(int &x, int &y) {
   if (FLIP_X) x = WIDTH - 1 - x;
   if (FLIP_Y) y = HEIGHT - 1 - y;
@@ -190,10 +183,7 @@ void setXY(int x, int y, uint32_t c) {
   if (i >= 0 && i < NUMPIXELS) pixels.setPixelColor(i, c);
 }
 
-// =====================================================
-// Tiny 3x5 digits for score (fits top-left)
-// Each digit is 3 wide x 5 high
-// =====================================================
+
 const uint8_t DIGITS_3x5[10][5] = {
   {0b111,0b101,0b101,0b101,0b111}, // 0
   {0b010,0b110,0b010,0b010,0b111}, // 1
@@ -218,7 +208,7 @@ void drawDigit3x5(int x0, int y0, int d, uint32_t color) {
   }
 }
 
-// Draw score at top-left, up to 3 digits (0..999)
+
 void drawScoreTopLeft(uint32_t color) {
   int s = score;
   if (s < 0) s = 0;
@@ -232,7 +222,7 @@ void drawScoreTopLeft(uint32_t color) {
   int y = 0;
   int spacing = 1;
 
-  // suppress leading zeros
+ 
   if (hundreds > 0) {
     drawDigit3x5(x, y, hundreds, color);
     x += 3 + spacing;
@@ -248,9 +238,7 @@ void drawScoreTopLeft(uint32_t color) {
   }
 }
 
-// =====================================================
-// "GO" display (5x7 font for G and O)
-// =====================================================
+
 struct Glyph5x7 { char ch; uint8_t rows[7]; };
 const Glyph5x7 FONT_GO[] = {
   {'G', {0b01110,0b10001,0b10000,0b10111,0b10001,0b10001,0b01110}},
@@ -280,7 +268,7 @@ void drawGO() {
   pixels.clear();
   uint32_t c = pixels.Color(255, 0, 0);
 
-  // "GO" width: 5 + 1 + 5 = 11
+  
   int x0 = (WIDTH - 11) / 2;
   int y0 = 0;
 
@@ -290,9 +278,7 @@ void drawGO() {
   pixels.show();
 }
 
-// =====================================================
-// Helpers
-// =====================================================
+
 bool jumpPressedEdge() {
   bool down = (digitalRead(jumpBtnPin) == LOW);
   bool edge = down && !lastJumpDown;
@@ -326,7 +312,7 @@ void drawStartScreen() {
   uint32_t pipeColor = pixels.Color(0, 255, 0);
   uint32_t birdColor = pixels.Color(255, 255, 0);
 
-  // pipes (static positions)
+
   for (int p = 0; p < 2; p++) {
     int x = pipeX[p];
     for (int row = 0; row < gapTop[p]; row++) setXY(x, row, pipeColor);
@@ -338,22 +324,20 @@ void drawStartScreen() {
   if (by > HEIGHT - 1) by = HEIGHT - 1;
   setXY(birdX, by, birdColor);
 
-  // score (0) in left corner
+ 
   drawScoreTopLeft(pixels.Color(255, 255, 255));
 
-  // hint dot
+  
   setXY(WIDTH - 2, HEIGHT - 1, pixels.Color(0, 0, 255));
 
   pixels.show();
 }
 
-// =====================================================
-// Flappy task
-// =====================================================
+
 void taskFlappy() {
   unsigned long now = millis();
 
-  // START: show initial picture, wait for press
+ 
   if (state == STATE_START) {
     static unsigned long lastDraw = 0;
     if (now - lastDraw > 80) {
@@ -364,12 +348,12 @@ void taskFlappy() {
       state = STATE_PLAYING;
       lastFrameMs = now;
       lastPipeMs = now;
-      birdVy = JUMP_IMPULSE; // nicer start
+      birdVy = JUMP_IMPULSE; 
     }
     return;
   }
 
-  // GO: show "GO", then back to START and wait press
+  
   if (state == STATE_GO) {
     if (now - goStartedMs < GO_SHOW_MS) {
       if (((now / 200) % 2) == 0) drawGO();
@@ -380,16 +364,16 @@ void taskFlappy() {
     return;
   }
 
-  // PLAYING
+  
   if (now - lastFrameMs < FRAME_MS) return;
   lastFrameMs = now;
 
-  // input impulse
+  
   if (jumpPressedEdge()) {
     birdVy = JUMP_IMPULSE;
   }
 
-  // physics
+  
   birdVy += GRAVITY;
   if (birdVy > MAX_FALL) birdVy = MAX_FALL;
 
@@ -397,7 +381,7 @@ void taskFlappy() {
   if (birdYf < 0) { birdYf = 0; birdVy = 0; }
   if (birdYf > (HEIGHT - 1)) { birdYf = (float)(HEIGHT - 1); birdVy = 0; }
 
-  // pipes movement
+  
   if (now - lastPipeMs >= PIPE_MS) {
     lastPipeMs = now;
 
@@ -405,7 +389,7 @@ void taskFlappy() {
       prevPipeX[p] = pipeX[p];
       pipeX[p]--;
 
-      // score: pipe passed bird
+      
       if (prevPipeX[p] >= birdX && pipeX[p] < birdX) {
         score++;
       }
@@ -417,7 +401,7 @@ void taskFlappy() {
     }
   }
 
-  // draw
+ 
   pixels.clear();
   uint32_t pipeColor = pixels.Color(0, 255, 0);
   uint32_t birdColor = pixels.Color(255, 255, 0);
@@ -427,16 +411,16 @@ void taskFlappy() {
   if (birdY < 0) birdY = 0;
   if (birdY > HEIGHT - 1) birdY = HEIGHT - 1;
 
-  // pipes (single column)
+  
   for (int p = 0; p < 2; p++) {
     int x = pipeX[p];
 
-    // upper
+   
     for (int row = 0; row < gapTop[p]; row++) setXY(x, row, pipeColor);
-    // lower
+   
     for (int row = gapTop[p] + gapSize; row < HEIGHT; row++) setXY(x, row, pipeColor);
 
-    // collision (single column)
+    
     if (x == birdX && (birdY < gapTop[p] || birdY >= gapTop[p] + gapSize)) {
       state = STATE_GO;
       goStartedMs = now;
@@ -444,20 +428,18 @@ void taskFlappy() {
     }
   }
 
-  // bird
+  
   setXY(birdX, birdY, birdColor);
 
-  // score overlay (draw last so it stays visible)
+  
   drawScoreTopLeft(scoreColor);
 
   pixels.show();
 }
 
-// =====================================================
-// setup / loop
-// =====================================================
+
 void setup() {
-  // LCD
+  
   pinMode(btn1, INPUT_PULLUP);
   pinMode(btn2, INPUT_PULLUP);
   pinMode(btn3, INPUT_PULLUP);
@@ -471,7 +453,7 @@ void setup() {
   lcd.begin(16, 2);
   showMenu();
 
-  // Flappy
+  
   pinMode(jumpBtnPin, INPUT_PULLUP);
 
   pixels.begin();
